@@ -1,0 +1,222 @@
+---
+title: Homework4
+author: "Lia"
+date: "2023-10-25"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Challenge 1
+
+**Description:** Write a simple R function, Z.prop.test(), that can perform one- or two-sample Z-tests for proportion data.
+
+Load the packages first.
+
+```{r}
+library(curl)
+library(ggplot2)
+library(dplyr)
+```
+
+Write the function then.
+
+```{r}
+Z.prop.test <- function(p1, n1, p0, alternative="two.sided", p2=NULL, n2=NULL, conf.level=0.95){
+  result_list <- NULL
+  
+  z_value=NULL
+  p_value=NULL
+  conf_interval=NULL #AM- nice job setting the dummy variables all at the top
+  
+  if (is.null(p2)==FALSE & is.null(n2)==FALSE) {
+    if((((n1*p1<5) | (n1*(1-p1)<5)) | (n2*p2<5) | (n2*(1-p2)<5))){ 
+    print("Warning! The approximation can only be true when n is fairly large and p is not close to 0 or 1.") #AM- I think this statment is a hard conclusion.
+    }
+    phat <- (p1*n1+p2*n2)/(n1+n2)
+    num <- 1/n1+1/n2
+    z_value=(p2-p1)/(sqrt(phat*(1-phat)*(1/n1+1/n2)))  
+    norma <- 1-((1-conf.level)/2) 
+    lower <- phat-qnorm(norma)*sqrt(phat*(1-phat)/num)
+    upper <- phat+qnorm(norma)*sqrt(phat*(1-phat)/num)
+    conf_interval=c(lower, upper)
+    if(alternative=="less"){
+      p_value=pnorm(z_value, lower.tail=TRUE)
+    }
+    if(alternative=="greater"){
+      p_value=pnorm(z_value, lower.tail=FALSE)
+    }
+    if(alternative=="two.sided"){
+      p_value=2*pnorm(z_value, lower.tail=FALSE) #AM- p values were. coded the same way I did!
+    }
+  }
+ if (is.null(p2)==TRUE & is.null(n2)==TRUE) {
+   if((n1*p1<5) | (n1*(1-p1)<5)){
+    print("Warning! The approximation can only be true when n is fairly large and p is not close to 0 or 1.")
+   }
+   phat <- mean(p1) #AM- I realized that I set pphat to the mean of p0, not p1, which is incorrect! Im going to change it. Thank you!
+   z_value=(phat-p0)/(sqrt(p0*(1-p0)/n1))
+   norma <- 1-((1-conf.level)/2)
+   lower <- phat-qnorm(norma)*sqrt(phat*(1-phat)/n1)
+   upper <- phat+qnorm(norma)*sqrt(phat*(1-phat)/n1)
+   conf_interval=c(lower, upper)
+   if(alternative=="less"){
+      p_value=pnorm(z_value, lower.tail=TRUE)
+   }
+   if(alternative=="greater"){
+      p_value=pnorm(z_value, lower.tail=FALSE)
+   }
+   if(alternative=="two.sided"){
+      p_value=2*pnorm(z_value, lower.tail=FALSE)
+   }
+ }
+  result_list=list(z_value, p_value, conf_interval)
+  names(result_list) <- c("Z-value", "P-value", "Confidence interval") 
+  return(result_list) #AM- Noce work setting a result_list, I simply listed it all in the priint but this method is very clean and pretty
+}
+```
+
+I guess we can test this function now. 
+
+1. Warning? 
+```{r}
+Z.prop.test(p1=0.5, n1=1, p0=0.6) #I like the testing. .  .I realize I forgot to do that. . . yikes. Your function works as intented.
+```
+
+```{r}
+Z.prop.test(p1=0.5, n1=1, p0=0.6, p2=0.3, n2=1)
+```
+
+Warning message produced normally. 
+
+***
+
+2. Alternative option? 
+
+```{r}
+Z.prop.test(p1=0.7, n1=30, p0=0.5, alternative="less")
+```
+
+```{r}
+Z.prop.test(p1=0.7, n1=40, p0=0.5, alternative="greater", p2=0.4, n2=30)
+```
+
+```{r}
+Z.prop.test(p1=0.7, n1=40, p0=0.5, alternative="less", p2=0.4, n2=30)
+```
+
+Alternative option works (no error message at least haha im so screwed)
+
+***
+
+3. Confidence level? 
+```{r}
+Z.prop.test(p1=0.7, n1=40, p0=0.8)
+```
+
+```{r}
+Z.prop.test(p1=0.7, n1=40, p0=0.8, conf.level=0.6)
+```
+
+Nice the confidence interval result changes. 
+
+## Challenge 2
+The dataset from Kamilar and Cooper has in it a large number of variables related to life history and body size. For this exercise, the end aim is to fit a simple linear regression model to predict longevity (MaxLongevity_m) measured in months from species’ brain size (Brain_Size_Species_Mean) measured in grams. Do the following for both longevity~brain size and log(longevity)~log(brain size)
+
+Read the data. 
+
+```{r}
+f <- curl("https://raw.githubusercontent.com/fuzzyatelin/fuzzyatelin.github.io/master/AN588_Fall21/KamilarAndCooperData.csv")
+KC <- read.csv(f, header=TRUE, sep=",", stringsAsFactors=FALSE) %>% filter(!is.na(MaxLongevity_m)) %>% filter(!is.na(Brain_Size_Species_Mean))
+```
+
+Model creation. 
+
+```{r}
+lmod <- lm(MaxLongevity_m~Brain_Size_Species_Mean, data=KC)
+summary(lmod)
+```
+
+Plot creation. 
+
+```{r}
+g <- ggplot(data=KC, aes(x=Brain_Size_Species_Mean, y=MaxLongevity_m))
+g <- g+geom_point()
+g <- g+geom_smooth(method="lm", formula=y~x)
+g #AM- This was the same way I did it, I did however filter the datafram to just have the 2 needed columns
+```
+
+Repeat the process with log. 
+
+```{r}
+logmod <- lm((log(MaxLongevity_m))~(log(Brain_Size_Species_Mean)), data=KC)
+summary(logmod)
+```
+
+Plot creation. 
+
+```{r}
+g <- ggplot(data=KC, aes(x=(log(Brain_Size_Species_Mean)), y=(log(MaxLongevity_m))))
+g <- g+geom_point()
+g <- g+geom_smooth(method="lm", formula=y~x)
+g #Beautiful
+```
+
+***
+Prediction part! 
+
+```{r}
+hat90 <- predict(lmod, newdata=data.frame(Brain_Size_Species_Mean=KC$Brain_Size_Species_Mean)) 
+conf90 <- predict(lmod, newdata=data.frame(Brain_Size_Species_Mean=KC$Brain_Size_Species_Mean), interval="confidence", level=0.9)
+pred90 <- predict(lmod, newdata=data.frame(Brain_Size_Species_Mean=KC$Brain_Size_Species_Mean), interval="prediction", level=0.9)
+#AM_ I don't know why, but the "newdata=data.frame" was giving me a huge headache, kept saying they couldn't find "Brain_Size_Species_Mean". I'm going to try again with this format once again(Although I think I already did it this way, maybe I was too tired to do it correctly)
+df <- data.frame(cbind(KC$Brain_Size_Species_Mean, KC$MaxLongevity_m, hat90)) #AM- Nice clean way of adding it together
+names(df) <- c("Brain_Size_Species_Mean", "MaxLongevity_m", "hat")
+df <- cbind(df, conf90, pred90)
+names(df) <- c("Brain_Size_Species_Mean", "MaxLongevity_m", "hat", "conf90fit", "conf90lwr", "conf90upr", "pred90fit", "pred90lwr", "pred90upr") # I think you can just do it once, no need to use names() in current line 176
+g <- ggplot(data=df, aes(x=Brain_Size_Species_Mean, y=MaxLongevity_m))
+g <- g+geom_point()
+g <- g+geom_line(aes(x=Brain_Size_Species_Mean, y=conf90fit), colour="black")+geom_line(aes(x=Brain_Size_Species_Mean, y=conf90lwr), colour="blue")+geom_line(aes(x=Brain_Size_Species_Mean, y=conf90upr), colour="blue")
+g <- g+geom_line(data=df, aes(x=Brain_Size_Species_Mean, y=pred90lwr), colour="red")+geom_line(data=df, aes(x=Brain_Size_Species_Mean, y=pred90upr), colour="red")
+g
+#AM- Generally, we both did it the same way!
+```
+
+This is really killing me but let's do it for log. 
+```{r}
+loghat90 <- predict(logmod, newdata=data.frame(Brain_Size_Species_Mean=KC$Brain_Size_Species_Mean))
+logconf90 <- predict(logmod, newdata=data.frame(Brain_Size_Species_Mean=KC$Brain_Size_Species_Mean), interval="confidence", level=0.9)
+logpred90 <- predict(logmod, newdata=data.frame(Brain_Size_Species_Mean=KC$Brain_Size_Species_Mean), interval="prediction", level=0.9)
+df2 <- data.frame(cbind(log(KC$Brain_Size_Species_Mean), log(KC$MaxLongevity_m), loghat90))
+names(df) <- c("logBrain_Size_Species_Mean", "logMaxLongevity_m", "loghat")
+df2 <- cbind(df2, logconf90, logpred90)
+names(df2) <- c("logBrain_Size_Species_Mean", "logMaxLongevity_m", "loghat", "logconf90fit", "logconf90lwr", "logconf90upr", "logpred90fit", "logpred90lwr", "logpred90upr")
+g <- ggplot(data=df2, aes(x=logBrain_Size_Species_Mean, y=logMaxLongevity_m))
+g <- g+geom_point()
+g <- g+geom_line(aes(x=logBrain_Size_Species_Mean, y=logconf90fit), colour="black")+geom_line(aes(x=logBrain_Size_Species_Mean, y=logconf90lwr), colour="blue")+geom_line(aes(x=logBrain_Size_Species_Mean, y=logconf90upr), colour="blue")
+g <- g+geom_line(data=df2, aes(x=logBrain_Size_Species_Mean, y=logpred90lwr), colour="red")+geom_line(data=df2, aes(x=logBrain_Size_Species_Mean, y=logpred90upr), colour="red")
+g #AM-Real good job. Mine was butchered and the lines are nowhere near the points. I think I used the wrong variables now that I am reading your code and comparing it to mine. Thanks.
+```
+
+Finally! Let's do the prediction. 
+```{r}
+pest <- predict(lmod, newdata=data.frame(Brain_Size_Species_Mean=c(800), interval="prediction", level=0.9))
+pest
+
+#AM- You forgot to close the datafram parenthesis after c(800), it doesnt go at the end of the code, thas why you were getting funky values back
+```
+```{r}
+logpest <- predict(logmod, newdata=data.frame(Brain_Size_Species_Mean=c(800)), interval="prediction", level=0.9)
+logpest
+#AM- Here the datafram closes in the right place
+#AM- You forgot to do the written portion of the very last two parts of the HW!! Do you trust the model to predict accurately and which one is better!
+
+#Great job with the homework, this is coded A LOT better than mine. Our codes were very similar but you made it more efficient. I stuggled placing the prediction and confidence interval lines for the log function but upon looking at your code, I realized I might have used the wrong variables, so thank you very much for helping me! I really enjoyed reading your code.
+```
+Oh my God it's finally done (I hope so)
+
+Good night sleep sleep
+
+
