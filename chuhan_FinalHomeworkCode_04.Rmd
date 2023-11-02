@@ -1,0 +1,227 @@
+---
+title: Homework4
+author: "Lia"
+date: "2023-10-25"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    toc_collapsed: true
+    number_sections: true
+    theme: lumen
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Challenge 1
+
+**Description:** Write a simple R function, Z.prop.test(), that can perform one- or two-sample Z-tests for proportion data.
+
+Load the packages first.
+
+```{r}
+library(curl)
+library(ggplot2)
+library(dplyr)
+```
+
+Write the function then.
+
+```{r}
+Z.prop.test <- function(p1, n1, p0, alternative="two.sided", p2=NULL, n2=NULL, conf.level=0.95){
+  result_list <- NULL
+  
+  z_value=NULL
+  p_value=NULL
+  conf_interval=NULL
+  
+  if (is.null(p2)==FALSE & is.null(n2)==FALSE) {
+    if((((n1*p1<5) | (n1*(1-p1)<5)) | (n2*p2<5) | (n2*(1-p2)<5))){
+    print("Warning! The approximation can only be true when n is fairly large and p is not close to 0 or 1.")
+    }
+    phat <- (p1*n1+p2*n2)/(n1+n2)
+    num <- 1/n1+1/n2
+    z_value=(p2-p1)/(sqrt(phat*(1-phat)*(1/n1+1/n2)))  
+    norma <- 1-((1-conf.level)/2)
+    lower <- phat-qnorm(norma)*sqrt(phat*(1-phat)/num)
+    upper <- phat+qnorm(norma)*sqrt(phat*(1-phat)/num)
+    conf_interval=c(lower, upper)
+    if(alternative=="less"){
+      p_value=pnorm(z_value, lower.tail=TRUE)
+    }
+    if(alternative=="greater"){
+      p_value=pnorm(z_value, lower.tail=FALSE)
+    }
+    if(alternative=="two.sided"){
+      p_value=2*pnorm(z_value, lower.tail=FALSE)
+    }
+  }
+ if (is.null(p2)==TRUE & is.null(n2)==TRUE) {
+   if((n1*p1<5) | (n1*(1-p1)<5)){
+    print("Warning! The approximation can only be true when n is fairly large and p is not close to 0 or 1.")
+   }
+   phat <- mean(p1)
+   z_value=(phat-p0)/(sqrt(p0*(1-p0)/n1))
+   norma <- 1-((1-conf.level)/2)
+   lower <- phat-qnorm(norma)*sqrt(phat*(1-phat)/n1)
+   upper <- phat+qnorm(norma)*sqrt(phat*(1-phat)/n1)
+   conf_interval=c(lower, upper)
+   if(alternative=="less"){
+      p_value=pnorm(z_value, lower.tail=TRUE)
+   }
+   if(alternative=="greater"){
+      p_value=pnorm(z_value, lower.tail=FALSE)
+   }
+   if(alternative=="two.sided"){
+      p_value=2*pnorm(z_value, lower.tail=FALSE)
+   }
+ }
+  result_list=list(z_value, p_value, conf_interval)
+  names(result_list) <- c("Z-value", "P-value", "Confidence interval")
+  return(result_list)
+}
+```
+
+I guess we can test this function now. 
+
+1. Warning? 
+```{r}
+Z.prop.test(p1=0.5, n1=1, p0=0.6)
+```
+
+```{r}
+Z.prop.test(p1=0.5, n1=1, p0=0.6, p2=0.3, n2=1)
+```
+
+Warning message produced normally. 
+
+***
+
+2. Alternative option? 
+
+```{r}
+Z.prop.test(p1=0.7, n1=30, p0=0.5, alternative="less")
+```
+
+```{r}
+Z.prop.test(p1=0.7, n1=40, p0=0.5, alternative="greater", p2=0.4, n2=30)
+```
+
+```{r}
+Z.prop.test(p1=0.7, n1=40, p0=0.5, alternative="less", p2=0.4, n2=30)
+```
+
+Alternative option works (no error message at least haha im so screwed)
+
+***
+
+3. Confidence level? 
+```{r}
+Z.prop.test(p1=0.7, n1=40, p0=0.8)
+```
+
+```{r}
+Z.prop.test(p1=0.7, n1=40, p0=0.8, conf.level=0.6)
+```
+
+Nice the confidence interval result changes. 
+
+# Challenge 2
+**Description: **The dataset from Kamilar and Cooper has in it a large number of variables related to life history and body size. For this exercise, the end aim is to fit a simple linear regression model to predict longevity (MaxLongevity_m) measured in months from species’ brain size (Brain_Size_Species_Mean) measured in grams. Do the following for both longevity~brain size and log(longevity)~log(brain size)
+
+Read the data. 
+
+```{r}
+f <- curl("https://raw.githubusercontent.com/fuzzyatelin/fuzzyatelin.github.io/master/AN588_Fall21/KamilarAndCooperData.csv")
+KC <- read.csv(f, header=TRUE, sep=",", stringsAsFactors=FALSE) %>% filter(!is.na(MaxLongevity_m)) %>% filter(!is.na(Brain_Size_Species_Mean))
+```
+
+Model creation. 
+
+```{r}
+lmod <- lm(MaxLongevity_m~Brain_Size_Species_Mean, data=KC)
+summary(lmod)
+```
+
+Plot creation. 
+
+```{r}
+g <- ggplot(data=KC, aes(x=Brain_Size_Species_Mean, y=MaxLongevity_m))
+g <- g+geom_point()
+g <- g+geom_smooth(method="lm", formula=y~x)
+g
+```
+
+Repeat the process with log. 
+
+```{r}
+logmod <- lm((log(MaxLongevity_m))~(log(Brain_Size_Species_Mean)), data=KC)
+summary(logmod)
+```
+
+Plot creation. 
+
+```{r}
+g <- ggplot(data=KC, aes(x=(log(Brain_Size_Species_Mean)), y=(log(MaxLongevity_m))))
+g <- g+geom_point()
+g <- g+geom_smooth(method="lm", formula=y~x)
+g
+```
+
+***
+
+Prediction part! 
+
+```{r}
+hat90 <- predict(lmod, newdata=data.frame(Brain_Size_Species_Mean=KC$Brain_Size_Species_Mean))
+conf90 <- predict(lmod, newdata=data.frame(Brain_Size_Species_Mean=KC$Brain_Size_Species_Mean), interval="confidence", level=0.9)
+pred90 <- predict(lmod, newdata=data.frame(Brain_Size_Species_Mean=KC$Brain_Size_Species_Mean), interval="prediction", level=0.9)
+df <- data.frame(cbind(KC$Brain_Size_Species_Mean, KC$MaxLongevity_m, hat90))
+names(df) <- c("Brain_Size_Species_Mean", "MaxLongevity_m", "hat")
+df <- cbind(df, conf90, pred90)
+names(df) <- c("Brain_Size_Species_Mean", "MaxLongevity_m", "hat", "conf90fit", "conf90lwr", "conf90upr", "pred90fit", "pred90lwr", "pred90upr")
+g <- ggplot(data=df, aes(x=Brain_Size_Species_Mean, y=MaxLongevity_m))
+g <- g+geom_point()
+g <- g+geom_line(aes(x=Brain_Size_Species_Mean, y=conf90fit), colour="black")+geom_line(aes(x=Brain_Size_Species_Mean, y=conf90lwr), colour="blue")+geom_line(aes(x=Brain_Size_Species_Mean, y=conf90upr), colour="blue")
+g <- g+geom_line(data=df, aes(x=Brain_Size_Species_Mean, y=pred90lwr), colour="red")+geom_line(data=df, aes(x=Brain_Size_Species_Mean, y=pred90upr), colour="red")
+g
+```
+
+This is really killing me but let's do it for log. 
+```{r}
+loghat90 <- predict(logmod, newdata=data.frame(Brain_Size_Species_Mean=KC$Brain_Size_Species_Mean))
+logconf90 <- predict(logmod, newdata=data.frame(Brain_Size_Species_Mean=KC$Brain_Size_Species_Mean), interval="confidence", level=0.9)
+logpred90 <- predict(logmod, newdata=data.frame(Brain_Size_Species_Mean=KC$Brain_Size_Species_Mean), interval="prediction", level=0.9)
+df2 <- data.frame(cbind(log(KC$Brain_Size_Species_Mean), log(KC$MaxLongevity_m), loghat90))
+names(df) <- c("logBrain_Size_Species_Mean", "logMaxLongevity_m", "loghat")
+df2 <- cbind(df2, logconf90, logpred90)
+names(df2) <- c("logBrain_Size_Species_Mean", "logMaxLongevity_m", "loghat", "logconf90fit", "logconf90lwr", "logconf90upr", "logpred90fit", "logpred90lwr", "logpred90upr")
+g <- ggplot(data=df2, aes(x=logBrain_Size_Species_Mean, y=logMaxLongevity_m))
+g <- g+geom_point()
+g <- g+geom_line(aes(x=logBrain_Size_Species_Mean, y=logconf90fit), colour="black")+geom_line(aes(x=logBrain_Size_Species_Mean, y=logconf90lwr), colour="blue")+geom_line(aes(x=logBrain_Size_Species_Mean, y=logconf90upr), colour="blue")
+g <- g+geom_line(data=df2, aes(x=logBrain_Size_Species_Mean, y=logpred90lwr), colour="red")+geom_line(data=df2, aes(x=logBrain_Size_Species_Mean, y=logpred90upr), colour="red")
+g
+```
+
+Finally! Let's do the prediction. 
+```{r}
+pest <- predict(lmod, newdata=data.frame(Brain_Size_Species_Mean=c(800)), interval="prediction", level=0.9)
+pest
+```
+```{r}
+logpest <- predict(logmod, newdata=data.frame(Brain_Size_Species_Mean=c(800)), interval="prediction", level=0.9)
+logpest
+```
+
+**Conclusion: **I would say that the log one seems better. The un-transformed graph looks largely affected by a few data which don't really belong to the general trend...Besides, I won't say the two variables involved in this challenge have perfect (or at least, relatively nice) correlation, so I am not sure if I can actually trust the result. I think I will just consider the prediction result as a possibility, but not 100% trust it. 
+
+# Comments
+
+1. This homework absolutely killed many of my brain cells (and I don't actually have many before doing this (just kidding) ). I didn't expect the homework to be like this when I saw "simple function" in the instruction. According to my peer's commentary I think I am not the only one feeling this way. Malik (the student commented on my work) definitely suffered from this homework too. 
+
+2. Shoutout to Malik. Really helpful commentary. 
+
+3. This is great practice, I guess! Although I don't want to do it again! 
+
